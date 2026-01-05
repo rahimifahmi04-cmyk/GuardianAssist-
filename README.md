@@ -28,7 +28,8 @@
 
         /* Product Cards */
         .list { padding: 15px; }
-        .card { background: white; border-radius: 15px; padding: 15px; margin-bottom: 12px; display: flex; align-items: center; box-shadow: 0 2px 8px rgba(0,0,0,0.05); transition: 0.2s; }
+        .card { background: white; border-radius: 15px; padding: 15px; margin-bottom: 12px; display: flex; align-items: center; box-shadow: 0 2px 8px rgba(0,0,0,0.05); transition: 0.2s; cursor: pointer; }
+        .card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
         .info { flex-grow: 1; }
         .brand { font-size: 11px; color: var(--g-green); font-weight: 800; text-transform: uppercase; }
         .name { font-size: 15px; font-weight: 600; margin: 4px 0; }
@@ -56,11 +57,6 @@
             width: 100%; 
             height: 100%; 
             position: relative;
-        }
-        .scanner-viewport {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
         }
         .overlay-box { 
             position: absolute;
@@ -225,6 +221,7 @@
             display: flex;
             align-items: center;
             gap: 8px;
+            cursor: pointer;
         }
 
         /* Navigation Bar */
@@ -266,7 +263,7 @@
             box-shadow: 0 4px 12px rgba(0,117,74,0.3);
         }
         
-        /* Exit Button */
+        /* Scanner Buttons */
         .exit-btn {
             position: absolute;
             top: 20px;
@@ -279,48 +276,36 @@
             font-weight: bold;
             font-size: 14px;
             box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+            cursor: pointer;
+        }
+        
+        .flash-btn {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 1005;
+            padding: 12px 24px;
+            border-radius: 25px;
+            border: none;
+            background: rgba(255,255,255,0.9);
+            font-weight: bold;
+            font-size: 14px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+            cursor: pointer;
         }
         
         /* Scanner Status */
         .scanner-status {
             position: absolute;
-            top: 20px;
+            top: 70px;
             left: 20px;
             z-index: 1005;
-            padding: 10px 15px;
+            padding: 8px 15px;
             border-radius: 20px;
             background: rgba(0,0,0,0.7);
             color: white;
             font-size: 12px;
             display: none;
-        }
-        
-        /* Focus Adjustment */
-        .focus-slider-container {
-            position: absolute;
-            top: 80px;
-            right: 20px;
-            z-index: 1005;
-            background: rgba(0,0,0,0.7);
-            padding: 15px;
-            border-radius: 15px;
-            display: none;
-        }
-        .focus-slider {
-            width: 200px;
-            height: 5px;
-            -webkit-appearance: none;
-            background: #ddd;
-            border-radius: 5px;
-            outline: none;
-        }
-        .focus-slider::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
-            background: var(--g-green);
-            cursor: pointer;
         }
     </style>
 </head>
@@ -345,17 +330,13 @@
         
         <div class="scanner-status" id="scanner-status">Ready</div>
         
-        <div class="focus-slider-container" id="focus-slider">
-            <div style="color: white; margin-bottom: 10px;">Manual Focus</div>
-            <input type="range" min="0.1" max="1" step="0.1" value="0.5" class="focus-slider" id="focus-range">
-        </div>
-        
+        <button class="flash-btn" onclick="toggleTorch()">⚡ FLASH</button>
         <button class="exit-btn" onclick="stopScanner()">✕ EXIT</button>
         
         <div class="scanner-controls">
             <button class="control-btn" onclick="toggleManualInput()">📝 MANUAL</button>
-            <button class="control-btn" onclick="triggerFocus()">🎯 FOCUS</button>
-            <button class="control-btn" onclick="toggleTorch()">⚡ TORCH</button>
+            <button class="control-btn" onclick="triggerAutoFocus()">🎯 AUTO-FOCUS</button>
+            <button class="control-btn" onclick="restartScanner()">🔄 RESTART</button>
         </div>
     </div>
 </div>
@@ -365,10 +346,10 @@
     <div class="manual-box">
         <h3 style="margin: 0 0 15px 0;">Enter Barcode Manually</h3>
         <p style="color: #666; margin-bottom: 10px;">If scanner can't read, enter 12-13 digit barcode:</p>
-        <input type="text" id="manual-barcode" placeholder="123456789012" maxlength="13" pattern="[0-9]{12,13}">
+        <input type="text" id="manual-barcode" placeholder="123456789012" maxlength="13" pattern="[0-9]{12,13}" onkeyup="if(event.key === 'Enter') submitManualBarcode()">
         <div style="display: flex; gap: 10px;">
-            <button onclick="submitManualBarcode()" style="flex: 1; background: var(--g-green); color: white; border: none; padding: 15px; border-radius: 10px; font-weight: bold;">ANALYZE</button>
-            <button onclick="closeManualInput()" style="flex: 1; background: #ddd; color: #333; border: none; padding: 15px; border-radius: 10px; font-weight: bold;">CANCEL</button>
+            <button onclick="submitManualBarcode()" style="flex: 1; background: var(--g-green); color: white; border: none; padding: 15px; border-radius: 10px; font-weight: bold; cursor: pointer;">ANALYZE</button>
+            <button onclick="closeManualInput()" style="flex: 1; background: #ddd; color: #333; border: none; padding: 15px; border-radius: 10px; font-weight: bold; cursor: pointer;">CANCEL</button>
         </div>
     </div>
 </div>
@@ -386,8 +367,8 @@
     </div>
     
     <div style="margin-top: 20px; display: flex; gap: 10px;">
-        <button onclick="document.getElementById('result-card').style.display='none'; startScanner();" style="flex: 1; background:var(--g-green); color:white; border:none; padding:15px; border-radius:10px; font-weight:bold;">SCAN NEXT</button>
-        <button onclick="document.getElementById('result-card').style.display='none';" style="flex: 1; background:#eee; color:#333; border:none; padding:15px; border-radius:10px; font-weight:bold;">CLOSE</button>
+        <button onclick="document.getElementById('result-card').style.display='none'; startScanner();" style="flex: 1; background:var(--g-green); color:white; border:none; padding:15px; border-radius:10px; font-weight:bold; cursor: pointer;">SCAN NEXT</button>
+        <button onclick="document.getElementById('result-card').style.display='none'; showMainUI();" style="flex: 1; background:#eee; color:#333; border:none; padding:15px; border-radius:10px; font-weight:bold; cursor: pointer;">CLOSE</button>
     </div>
 </div>
 
@@ -399,9 +380,9 @@
 
 <!-- Navigation -->
 <div class="nav">
-    <button class="nav-btn" onclick="stopScanner()">🏠<br>HOME</button>
+    <button class="nav-btn" onclick="showMainUI()">🏠<br>HOME</button>
     <div class="nav-btn" onclick="startScanner()"><div class="scan-circle">🔍</div>SCAN</div>
-    <button class="nav-btn" onclick="alert('Browse database active')">📂<br>ITEMS</button>
+    <button class="nav-btn" onclick="showAllProducts()">📂<br>ITEMS</button>
 </div>
 
 <script>
@@ -444,13 +425,28 @@
     let torchOn = false;
     let currentStream = null;
     let scanAttempts = 0;
-    const MAX_SCAN_ATTEMPTS = 30;
+    const MAX_SCAN_ATTEMPTS = 50;
     let scanTimeout = null;
+    let lastScannedCode = null;
+
+    // --- UI Management Functions ---
+    function showMainUI() {
+        stopScanner();
+        document.getElementById('main-ui').style.display = 'block';
+        document.getElementById('result-card').style.display = 'none';
+        document.getElementById('loading').style.display = 'none';
+    }
+
+    function showAllProducts() {
+        document.getElementById('searchInput').value = '';
+        render(fullDb);
+        showMainUI();
+    }
 
     // --- Search & UI Logic ---
     function render(data) {
         document.getElementById('productList').innerHTML = data.map(i => `
-            <div class="card" onclick="showProductDetails('${i.code}')">
+            <div class="card" onclick="analyzeProduct('${i.code}')">
                 <div class="info">
                     <div class="brand">${i.b}</div>
                     <div class="name">${i.n}</div>
@@ -462,14 +458,17 @@
         `).join('');
     }
 
-    function showProductDetails(barcode) {
-        document.getElementById('main-ui').style.display = 'none';
-        analyzeProduct(barcode);
-    }
-
     function search() {
         const q = document.getElementById('searchInput').value.toLowerCase();
-        render(fullDb.filter(i => i.n.toLowerCase().includes(q) || i.b.toLowerCase().includes(q)));
+        if (q.length === 0) {
+            render(fullDb);
+        } else {
+            render(fullDb.filter(i => 
+                i.n.toLowerCase().includes(q) || 
+                i.b.toLowerCase().includes(q) ||
+                i.c.toLowerCase().includes(q)
+            ));
+        }
     }
 
     function filter(cat, btn) {
@@ -478,16 +477,20 @@
         render(cat === "All" ? fullDb : fullDb.filter(i => i.c === cat));
     }
 
-    // --- Enhanced Scanner Logic with Better Focus ---
+    // --- Enhanced Scanner Logic with Best Accuracy ---
     async function startScanner() {
         document.getElementById('main-ui').style.display = 'none';
         document.getElementById('scanner-ui').style.display = 'block';
         document.getElementById('result-card').style.display = 'none';
         document.getElementById('loading').style.display = 'flex';
-        document.getElementById('loading-text').innerText = 'Initializing camera...';
+        document.getElementById('loading-text').innerText = 'Initializing high-resolution camera...';
+        
+        // Clear previous scanner
+        const interactive = document.getElementById('interactive');
+        interactive.innerHTML = '';
         
         try {
-            // First get camera access
+            // Get camera access with optimal settings
             const stream = await navigator.mediaDevices.getUserMedia({
                 video: {
                     facingMode: "environment",
@@ -500,23 +503,23 @@
             
             currentStream = stream;
             
-            // Configure Quagga with optimized settings
+            // Configure Quagga with optimized settings for accuracy
             const config = {
                 inputStream: {
                     name: "Live",
                     type: "LiveStream",
-                    target: document.querySelector('#interactive'),
+                    target: interactive,
                     constraints: {
                         facingMode: "environment",
-                        width: { min: 1280, ideal: 1920 },
-                        height: { min: 720, ideal: 1080 },
-                        aspectRatio: { min: 1.3, max: 1.7 }
+                        width: { min: 1280, ideal: 1920, max: 2560 },
+                        height: { min: 720, ideal: 1080, max: 1440 },
+                        frameRate: { ideal: 30, max: 60 }
                     },
                     area: {
-                        top: "25%",
-                        right: "25%",
-                        left: "25%",
-                        bottom: "25%"
+                        top: "20%",
+                        right: "20%",
+                        left: "20%",
+                        bottom: "20%"
                     },
                     singleChannel: false
                 },
@@ -537,13 +540,13 @@
                     halfSample: true
                 },
                 locate: true,
-                numOfWorkers: navigator.hardwareConcurrency || 4,
-                frequency: 15,
+                numOfWorkers: Math.min(navigator.hardwareConcurrency || 4, 6),
+                frequency: 20, // Higher frequency for faster scanning
                 debug: {
-                    drawBoundingBox: false,
+                    drawBoundingBox: true,
                     showFrequency: false,
                     drawScanline: true,
-                    showPattern: false
+                    showPattern: true
                 }
             };
             
@@ -552,14 +555,14 @@
                 
                 if (err) {
                     console.error("Scanner initialization failed:", err);
-                    document.getElementById('scanner-status').innerText = "Error: " + err.message;
+                    document.getElementById('scanner-status').innerText = "Error: Camera access failed";
                     document.getElementById('scanner-status').style.display = 'block';
                     document.getElementById('scanner-status').style.background = "rgba(211, 47, 47, 0.8)";
                     
                     // Show manual input as fallback
                     setTimeout(() => {
                         toggleManualInput();
-                    }, 1000);
+                    }, 1500);
                     return;
                 }
                 
@@ -576,18 +579,31 @@
                 // Start scan timeout
                 scanTimeout = setTimeout(() => {
                     if (scannerActive) {
-                        document.getElementById('focus-help').innerText = "Try moving closer or adjusting angle";
+                        document.getElementById('focus-help').innerText = "Try moving closer (4-8 inches) or adjusting angle";
                         document.getElementById('scanner-status').innerText = "Having trouble? Try manual input";
                         document.getElementById('scanner-status').style.background = "rgba(255, 193, 7, 0.8)";
                     }
-                }, 10000);
+                }, 8000);
             });
             
             Quagga.onDetected(async function(result) {
                 if (!result || !result.codeResult || !result.codeResult.code) return;
                 
                 const code = result.codeResult.code;
+                
+                // Prevent duplicate scanning
+                if (lastScannedCode === code && Date.now() - lastScanTime < 2000) {
+                    return;
+                }
+                
+                lastScannedCode = code;
+                lastScanTime = Date.now();
+                
                 console.log("Barcode detected:", code);
+                
+                // Provide immediate feedback
+                document.getElementById('scanner-status').innerText = "✓ Barcode detected!";
+                document.getElementById('scanner-status').style.background = "rgba(56, 142, 60, 0.8)";
                 
                 // Stop scanner immediately
                 Quagga.offDetected();
@@ -600,7 +616,7 @@
                 document.getElementById('loading-text').innerText = 'Analyzing product...';
                 
                 // Add slight delay for UX
-                await new Promise(resolve => setTimeout(resolve, 500));
+                await new Promise(resolve => setTimeout(resolve, 800));
                 
                 await analyzeProduct(code);
                 
@@ -613,12 +629,13 @@
                 scanAttempts++;
                 
                 // Update status based on attempts
-                if (scanAttempts > MAX_SCAN_ATTEMPTS / 2) {
-                    document.getElementById('scanner-status').innerText = "Adjust distance for better focus";
+                if (scanAttempts > MAX_SCAN_ATTEMPTS / 3) {
+                    document.getElementById('focus-help').innerText = "Keep barcode steady within the green box";
+                    document.getElementById('scanner-status').innerText = "Scanning... Adjust distance if needed";
                     document.getElementById('scanner-status').style.background = "rgba(255, 152, 0, 0.8)";
                 }
                 
-                // Draw debug info
+                // Draw debug info for better visualization
                 const drawingCtx = Quagga.canvas.ctx.overlay;
                 const drawingCanvas = Quagga.canvas.dom.overlay;
                 
@@ -628,16 +645,16 @@
                     result.boxes.filter(function(box) {
                         return box !== result.box;
                     }).forEach(function(box) {
-                        Quagga.ImageDebug.drawPath(box, {x: 0, y: 1}, drawingCtx, {color: "rgba(0, 255, 0, 0.3)", lineWidth: 1});
+                        Quagga.ImageDebug.drawPath(box, {x: 0, y: 1}, drawingCtx, {color: "rgba(0, 255, 0, 0.5)", lineWidth: 2});
                     });
                 }
                 
                 if (result.box) {
-                    Quagga.ImageDebug.drawPath(result.box, {x: 0, y: 1}, drawingCtx, {color: "#00F", lineWidth: 2});
+                    Quagga.ImageDebug.drawPath(result.box, {x: 0, y: 1}, drawingCtx, {color: "#00F", lineWidth: 3});
                 }
                 
                 if (result.codeResult && result.codeResult.code) {
-                    Quagga.ImageDebug.drawPath(result.line, {x: 'x', y: 'y'}, drawingCtx, {color: 'red', lineWidth: 3});
+                    Quagga.ImageDebug.drawPath(result.line, {x: 'x', y: 'y'}, drawingCtx, {color: 'red', lineWidth: 4});
                 }
             });
             
@@ -655,7 +672,7 @@
         }
     }
 
-    function triggerFocus() {
+    function triggerAutoFocus() {
         // Try to trigger autofocus
         if (currentStream) {
             const videoTrack = currentStream.getVideoTracks()[0];
@@ -665,16 +682,18 @@
                     if (capabilities.focusMode && capabilities.focusMode.includes('continuous')) {
                         videoTrack.applyConstraints({
                             advanced: [{ focusMode: 'continuous' }]
+                        }).then(() => {
+                            document.getElementById('scanner-status').innerText = "Auto-focus triggered";
+                            document.getElementById('scanner-status').style.display = 'block';
+                            setTimeout(() => {
+                                document.getElementById('scanner-status').style.display = 'none';
+                            }, 2000);
+                        }).catch(e => {
+                            console.log("Focus adjustment failed:", e);
                         });
-                        document.getElementById('scanner-status').innerText = "Auto-focus triggered";
-                        document.getElementById('scanner-status').style.display = 'block';
-                        setTimeout(() => {
-                            document.getElementById('scanner-status').style.display = 'none';
-                        }, 2000);
                     }
                 } catch (e) {
-                    console.log("Focus not supported");
-                    document.getElementById('focus-slider').style.display = 'block';
+                    console.log("Focus not supported on this device");
                 }
             }
         }
@@ -684,24 +703,40 @@
         if (!currentStream) return;
         
         const videoTrack = currentStream.getVideoTracks()[0];
-        if (videoTrack && videoTrack.getCapabilities && videoTrack.getSettings) {
+        if (videoTrack && videoTrack.getCapabilities) {
             try {
                 const capabilities = videoTrack.getCapabilities();
                 if (capabilities.torch) {
                     torchOn = !torchOn;
                     videoTrack.applyConstraints({
                         advanced: [{ torch: torchOn }]
+                    }).then(() => {
+                        document.getElementById('scanner-status').innerText = torchOn ? "⚡ Torch ON" : "Torch OFF";
+                        document.getElementById('scanner-status').style.display = 'block';
+                        setTimeout(() => {
+                            document.getElementById('scanner-status').style.display = 'none';
+                        }, 2000);
+                    }).catch(e => {
+                        console.log("Torch control failed:", e);
                     });
-                    document.getElementById('scanner-status').innerText = torchOn ? "Torch ON" : "Torch OFF";
+                } else {
+                    document.getElementById('scanner-status').innerText = "Torch not available";
                     document.getElementById('scanner-status').style.display = 'block';
                     setTimeout(() => {
                         document.getElementById('scanner-status').style.display = 'none';
                     }, 2000);
                 }
             } catch (e) {
-                alert("Torch not supported on this device");
+                console.log("Torch error:", e);
             }
         }
+    }
+
+    function restartScanner() {
+        stopScanner();
+        setTimeout(() => {
+            startScanner();
+        }, 500);
     }
 
     // Manual Input Functions
@@ -712,6 +747,7 @@
             scannerActive = false;
         }
         manualInput.style.display = 'flex';
+        document.getElementById('manual-barcode').focus();
     }
 
     function closeManualInput() {
@@ -722,7 +758,7 @@
 
     function submitManualBarcode() {
         const barcode = document.getElementById('manual-barcode').value.trim();
-        if (barcode.length >= 12 && /^\d+$/.test(barcode)) {
+        if (barcode.length >= 12 && barcode.length <= 13 && /^\d+$/.test(barcode)) {
             document.getElementById('manual-input').style.display = 'none';
             document.getElementById('loading').style.display = 'flex';
             document.getElementById('loading-text').innerText = 'Analyzing product...';
@@ -732,7 +768,7 @@
                 document.getElementById('manual-barcode').value = '';
             }, 500);
         } else {
-            alert("Please enter a valid 12-13 digit barcode");
+            alert("Please enter a valid 12-13 digit barcode (numbers only)");
         }
     }
 
@@ -751,17 +787,26 @@
                 localProduct = fullDb.find(p => p.b.toLowerCase().includes(prefix));
             }
             
-            // Try OpenFoodFacts API
+            // Try OpenFoodFacts API with timeout
             let apiData = null;
+            let apiError = null;
+            
             try {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 8000);
+                
                 const response = await fetch(`https://world.openfoodfacts.org/api/v0/product/${barcode}.json`, {
-                    signal: AbortSignal.timeout(5000)
+                    signal: controller.signal
                 });
+                
+                clearTimeout(timeoutId);
+                
                 if (response.ok) {
                     apiData = await response.json();
                 }
-            } catch (apiError) {
-                console.log("API call failed, using fallback");
+            } catch (error) {
+                apiError = error;
+                console.log("API call failed:", error);
             }
             
             let productName = "Scanned Product";
@@ -781,6 +826,10 @@
                 brand = localProduct.b;
                 ingredients = `Standard ${localProduct.b} formula. Check packaging for full ingredient list.`;
                 price = "RM " + localProduct.p;
+            } else if (!apiData || apiData.status === 0) {
+                // Generate a realistic product name from barcode
+                productName = `Product #${barcode.substring(0, 6)}`;
+                ingredients = "Product information not found in database. Please check packaging.";
             }
             
             document.getElementById('res-name').innerText = productName;
@@ -791,37 +840,4 @@
             let highlightedText = ingredients;
             
             redFlags.forEach(flag => {
-                const regex = new RegExp(`\\b${flag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, "gi");
-                if (regex.test(ingredients)) {
-                    foundFlags.push(flag.toUpperCase());
-                    highlightedText = highlightedText.replace(regex, `<span class="highlight">${flag}</span>`);
-                }
-            });
-            
-            const badge = document.getElementById('safety-badge');
-            const warning = document.getElementById('warning-container');
-            
-            if (foundFlags.length > 2) {
-                badge.className = "status-badge status-danger";
-                badge.innerText = "⚠️ HIGH RISK - MULTIPLE IRRITANTS";
-                warning.innerHTML = `<span style="color: ${danger}">Detected ${foundFlags.length} potential irritants</span><br>${foundFlags.slice(0, 3).join(", ")}${foundFlags.length > 3 ? '...' : ''}`;
-            } else if (foundFlags.length > 0) {
-                badge.className = "status-badge status-danger";
-                badge.innerText = "⚠️ CONTAINS POTENTIAL IRRITANTS";
-                warning.innerHTML = `<span style="color: ${danger}">Detected:</span> ${foundFlags.join(", ")}`;
-            } else {
-                badge.className = "status-badge status-safe";
-                badge.innerText = "✅ LOW RISK FORMULATION";
-                warning.innerHTML = `<span style="color: ${safe}">No common irritants detected.</span><br><small>Always patch test new products.</small>`;
-            }
-            
-            document.getElementById('res-contents').innerHTML = highlightedText || "No ingredient data available.";
-            
-        } catch (error) {
-            console.error("Analysis error:", error);
-            document.getElementById('res-name').innerText = "Scan Result";
-            document.getElementById('res-price').innerText = "RM --.--";
-            document.getElementById('safety-badge').className = "status-badge status-danger";
-            document.getElementById('safety-badge').innerText = "⚠️ ANALYSIS ERROR";
-            document.getElementById('warning-container').innerText = "Unable to retrieve product data. Please try again.";
-            document.getElementById('res-contents').innerText = "Network or database
+                const regex = new RegExp(`\\b${flag.replace(/[.*+?^${}()|[\]\\]/g,
